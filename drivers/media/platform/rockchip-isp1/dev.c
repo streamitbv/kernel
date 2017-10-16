@@ -490,10 +490,8 @@ err_unreg_isp_subdev:
 
 static const char * const rk3399_isp_clks[] = {
 	"clk-isp",
-	"aclk-isp-noc",
-	"aclk-isp-wrapper",
-	"hclk-isp-noc",
-	"hclk-isp-wrapper",
+	"aclk-isp",
+	"hclk-isp",
 };
 
 static const char * const rk3288_isp_clks[] = {
@@ -559,23 +557,18 @@ static irqreturn_t rkisp1_irq_handler(int irq, void *cntxt)
 
 static void rkisp1_disable_sys_clk(struct rkisp1_device *rkisp1_dev)
 {
-	struct clk *clk;
 	int i;
 
-	for (i = rkisp1_dev->clk_size - 1; i >= 0; i--) {
-		clk = rkisp1_dev->clks[i];
-		clk_disable_unprepare(clk);
-	}
+	for (i = rkisp1_dev->clk_size - 1; i >= 0; i--)
+		clk_disable_unprepare(rkisp1_dev->clks[i]);
 }
 
 static int rkisp1_enable_sys_clk(struct rkisp1_device *rkisp1_dev)
 {
-	struct clk *clk;
 	int i, ret = -EINVAL;
 
 	for (i = 0; i < rkisp1_dev->clk_size; i++) {
-		clk = rkisp1_dev->clks[i];
-		ret = clk_prepare_enable(clk);
+		ret = clk_prepare_enable(rkisp1_dev->clks[i]);
 		if (ret < 0)
 			goto err;
 	}
@@ -594,7 +587,7 @@ static int rkisp1_plat_probe(struct platform_device *pdev)
 	struct v4l2_device *v4l2_dev;
 	struct rkisp1_device *isp_dev;
 	const struct isp_match_data *clk_data;
-	struct rkisp1_stream *sp_stream, *mp_stream;
+
 	struct resource *res;
 	int i, ret, irq;
 
@@ -602,6 +595,7 @@ static int rkisp1_plat_probe(struct platform_device *pdev)
 	isp_dev = devm_kzalloc(dev, sizeof(*isp_dev), GFP_KERNEL);
 	if (!isp_dev)
 		return -ENOMEM;
+
 	dev_set_drvdata(dev, isp_dev);
 	isp_dev->dev = dev;
 
@@ -609,18 +603,20 @@ static int rkisp1_plat_probe(struct platform_device *pdev)
 	isp_dev->base_addr = devm_ioremap_resource(dev, res);
 	if (IS_ERR(isp_dev->base_addr))
 		return PTR_ERR(isp_dev->base_addr);
+
 	irq = platform_get_irq(pdev, 0);
 	if (irq < 0)
 		return irq;
+
 	ret = devm_request_irq(dev, irq, rkisp1_irq_handler, IRQF_SHARED,
 				dev_driver_string(dev), dev);
 	if (ret < 0) {
 		dev_err(dev, "request irq failed: %d\n", ret);
 		return ret;
 	}
+
 	isp_dev->irq = irq;
-	isp_dev->clk_size = 0;
-	clk_data = (const struct isp_match_data *)match->data;
+	clk_data = match->data;
 	for (i = 0; i < clk_data->size; i++) {
 		struct clk *clk = devm_clk_get(dev, clk_data->clks[i]);
 
@@ -629,21 +625,15 @@ static int rkisp1_plat_probe(struct platform_device *pdev)
 			return PTR_ERR(clk);
 		}
 		isp_dev->clks[i] = clk;
-		isp_dev->clk_size++;
 	}
+	isp_dev->clk_size = clk_data->size;
 
 	isp_dev->pipe.open = rkisp1_pipeline_open;
 	isp_dev->pipe.close = rkisp1_pipeline_close;
 	isp_dev->pipe.set_stream = rkisp1_pipeline_set_stream;
 
-	mp_stream = &isp_dev->stream[RKISP1_STREAM_MP];
-	sp_stream = &isp_dev->stream[RKISP1_STREAM_SP];
-	mp_stream->id = RKISP1_STREAM_SP;
-	sp_stream->id = RKISP1_STREAM_MP;
-	mp_stream->ispdev = isp_dev;
-	sp_stream->ispdev = isp_dev;
-	rkisp1_stream_init(sp_stream, RKISP1_STREAM_SP);
-	rkisp1_stream_init(mp_stream, RKISP1_STREAM_MP);
+	rkisp1_stream_init(isp_dev, RKISP1_STREAM_SP);
+	rkisp1_stream_init(isp_dev, RKISP1_STREAM_MP);
 
 	strlcpy(isp_dev->media_dev.model, "rkisp1",
 		sizeof(isp_dev->media_dev.model));
@@ -655,6 +645,7 @@ static int rkisp1_plat_probe(struct platform_device *pdev)
 	ret = v4l2_device_register(isp_dev->dev, &isp_dev->v4l2_dev);
 	if (ret < 0)
 		return ret;
+
 	ret = media_device_register(&isp_dev->media_dev);
 	if (ret < 0) {
 		v4l2_err(v4l2_dev, "Failed to register media device: %d\n",
@@ -662,7 +653,7 @@ static int rkisp1_plat_probe(struct platform_device *pdev)
 		goto err_unreg_v4l2_dev;
 	}
 
-	/*create & register platefom subdev (from of_node) */
+	/* create & register platefom subdev (from of_node) */
 	ret = rkisp1_register_platform_subdevs(isp_dev);
 	if (ret < 0)
 		goto err_unreg_media_dev;
@@ -689,13 +680,11 @@ static int rkisp1_plat_remove(struct platform_device *pdev)
 	rkisp1_unregister_stats_vdev(&isp_dev->stats_vdev);
 	rkisp1_unregister_stream_vdevs(isp_dev);
 	rkisp1_unregister_isp_subdev(isp_dev);
-	rkisp1_stream_release(&isp_dev->stream[RKISP1_STREAM_SP]);
-	rkisp1_stream_release(&isp_dev->stream[RKISP1_STREAM_MP]);
 
 	return 0;
 }
 
-static int rkisp1_runtime_suspend(struct device *dev)
+static int __maybe_unused rkisp1_runtime_suspend(struct device *dev)
 {
 	struct rkisp1_device *isp_dev = dev_get_drvdata(dev);
 
@@ -703,7 +692,7 @@ static int rkisp1_runtime_suspend(struct device *dev)
 	return pinctrl_pm_select_sleep_state(dev);
 }
 
-static int rkisp1_runtime_resume(struct device *dev)
+static int __maybe_unused rkisp1_runtime_resume(struct device *dev)
 {
 	struct rkisp1_device *isp_dev = dev_get_drvdata(dev);
 	int ret;

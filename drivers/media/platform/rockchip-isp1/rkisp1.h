@@ -79,16 +79,16 @@ struct rkisp1_sensor_info {
 };
 
 struct rkisp1_device {
-	void __iomem	*base_addr;
-	int		irq;
-	struct		device *dev;
-	struct		clk *clks[RKISP1_MAX_BUS_CLK];
+	void __iomem *base_addr;
+	int irq;
+	struct device *dev;
+	struct clk *clks[RKISP1_MAX_BUS_CLK];
 	int clk_size;
-	struct v4l2_device		v4l2_dev;
-	struct media_device		media_dev;
-	struct v4l2_async_notifier	notifier;
-	struct v4l2_subdev		*subdevs[RKISP1_SD_MAX];
-	struct rkisp1_sensor_info	sensors[RKISP1_MAX_SENSOR];
+	struct v4l2_device v4l2_dev;
+	struct media_device media_dev;
+	struct v4l2_async_notifier notifier;
+	struct v4l2_subdev *subdevs[RKISP1_SD_MAX];
+	struct rkisp1_sensor_info sensors[RKISP1_MAX_SENSOR];
 	int num_sensors;
 	spinlock_t writel_verify_lock;
 	struct rkisp1_isp_subdev isp_sdev;
