@@ -988,6 +988,13 @@ static int mi_frame_end(struct rkisp1_stream *stream)
 	}
 	spin_unlock_irqrestore(&stream->vbq_lock, lock_flags);
 
+	/* TODO */
+	if (!stream->next_buf) {
+		stream->next_buf = stream->curr_buf;
+		stream->curr_buf = NULL;
+		update_mi(stream);		
+	}
+
 	return 0;
 }
 
