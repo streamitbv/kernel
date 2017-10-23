@@ -73,6 +73,13 @@ config ROCKCHIP_LVDS
 	  support LVDS, rgb, dual LVDS output mode. say Y to enable its
 	  driver.
 
+config RK_HDMI_OUT
+    bool"LT8618 TTL turn to HDMI"
+    default Y
+    help
+        Choose this option to enable support for the LT8618 TTL to HDMI
+        driver.
+
 config ROCKCHIP_DRM_TVE
 	tristate "Rockchip TVE support"
 	depends on DRM_ROCKCHIP
