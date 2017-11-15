@@ -140,10 +140,15 @@
 		reset-gpios = <&gpio4 28 GPIO_ACTIVE_LOW>;
 	};
 
+	hdmi_analog_sound: hdmi-analog-sound {
+		status = "disabled";
+		rockchip,codec = <&es8323>, <&hdmi>;
+	};
+
 	sound {
 		compatible = "simple-audio-card";
 		simple-audio-card,format = "i2s";
-		simple-audio-card,name = "rockchip,boardcon-codec";
+		simple-audio-card,name = "rockchip,mlb400-codec";
 		simple-audio-card,mclk-fs = <512>;
 
 		simple-audio-card,dai-link@0 {
@@ -156,6 +161,16 @@
 				sound-dai = <&es8323>;
 			};
 		};
+        simple-audio-card,dai-link@1 {
+            format = "i2s";
+            cpu {
+                sound-dai = <&i2s>;
+            };
+
+            codec {
+                sound-dai = <&hdmi>;
+            };
+        };
 	};
 
 	vbat_wl: vcc_sys: vsys-regulator {
@@ -349,10 +364,15 @@
 	status = "okay";
 };
 
+&i2s {
+	#sound-dai-cells = <0>;
+	status = "okay";
+};
+
 &hdmi {
 	#address-cells = <1>;
 	#size-cells = <0>;
-	#sound-dai-cells = <0>;
+    #sound-dai-cells = <0>;
 	status = "okay";
 		/* Don't use vopl for HDMI */
 	ports {
@@ -360,12 +380,6 @@
 			/delete-node/ endpoint@1;
 		};
 	};
-};
-
-
-&i2s {
-	#sound-dai-cells = <0>;
-	status = "okay";
 };
 
 &i2c0 {
